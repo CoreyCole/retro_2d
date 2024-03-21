@@ -1,0 +1,47 @@
+[package]
+name = "retro_2d"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "retro_2d"
+path = "bin/retro_2d.rs"
+
+[lib]
+name = "retro_2d_lib"
+path = "lib/lib.rs"
+crate-type = ["cdylib", "rlib"] # crate-type must be cdylib to compile to wasm32-unknown-unknown
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 'z' # Optimize for size in release
+# LTO tells the compiler to optimize all code together, considering all crates as if they were one.
+# It may be able to inline and prune functions much more aggressively.
+# This typically results in smaller size and better performance, but do measure to confirm.
+# Sometimes, the size can actually be larger.
+lto = true
+codegen-units=1
+
+[dependencies]
+anyhow = "1.0.71"
+bevy = { version = "0.13.1" }
+bevy_interact_2d = "0.9.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+
+[target.wasm32-unknown-unknown.dependencies]
+console_log = { version = "1.0.0" }
+console_error_panic_hook = { version = "0.1.6" } # When building for WASM, print panics to the browser console
+wee_alloc = { version = "0.4.5" } # https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/template-deep-dive/wee_alloc.html
+web-sys = { version = "0.3", features = ['Performance'] }
+
+[target.wasm32-unknown-unknown.features]
+default = ["console_error_panic_hook", "wee_alloc"]
