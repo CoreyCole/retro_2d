@@ -1,16 +1,168 @@
 use bevy::prelude::*;
 
-use crate::{assets::Retro2dAssets, config::AppState};
+use crate::{
+    AppState, DragPlugin, Draggable, DropStrategy, Group, Interactable, InteractionPlugin,
+    InteractionSource, InteractionState, Retro2dAssets,
+};
 
 pub struct WorldPlugin;
+
+const BG_GROUP: u8 = 0;
+const ITEM_GROUP: u8 = 1;
 
 #[derive(Component)]
 struct Background;
 
+#[derive(Component)]
+struct ItemState {
+    normal: Handle<Image>,
+    glow: Handle<Image>,
+    selected: Handle<Image>,
+    is_glowing: bool,
+    is_dragging: bool,
+    is_selected: bool,
+}
+
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::Menu), setup_background);
+        app.add_plugins((InteractionPlugin, DragPlugin));
+        app.add_systems(OnExit(AppState::AssetsLoading), setup_background);
+        app.add_systems(OnEnter(AppState::Game), setup_clothes);
+        app.add_systems(
+            Update,
+            { interact_with_no_hover }.run_if(in_state(AppState::Game)),
+        );
+        app.add_systems(
+            Update,
+            { interact_with_items }.run_if(in_state(AppState::Game)),
+        );
     }
+}
+
+fn interact_with_no_hover(
+    interaction_state: Res<InteractionState>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut items: Query<(Entity, &mut Handle<Image>, &mut ItemState)>,
+) {
+    let mut no_hover = false;
+    for (entity, _, _) in items.iter_mut() {
+        let is_hovered = interaction_state
+            .get_group(Group(ITEM_GROUP))
+            .iter()
+            .any(|(e, _)| *e == entity);
+        no_hover |= is_hovered;
+    }
+    if !no_hover && mouse_button_input.just_pressed(MouseButton::Left) {
+        println!("No hover");
+        for (_, mut texture, mut state) in items.iter_mut() {
+            state.is_selected = false;
+            state.is_glowing = false;
+            *texture = state.normal.clone();
+        }
+    }
+}
+
+fn interact_with_items(
+    interaction_state: Res<InteractionState>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut items: Query<(Entity, &mut Handle<Image>, &mut ItemState)>,
+) {
+    for (entity, mut texture, mut state) in items.iter_mut() {
+        let is_hovered = interaction_state
+            .get_group(Group(ITEM_GROUP))
+            .iter()
+            .any(|(e, _)| *e == entity);
+
+        // selection
+        if !state.is_selected && mouse_button_input.just_pressed(MouseButton::Left) && is_hovered {
+            state.is_selected = true;
+            *texture = state.selected.clone();
+            println!("Selected");
+        } else if mouse_button_input.just_pressed(MouseButton::Left) && !is_hovered {
+            state.is_selected = false;
+            *texture = state.normal.clone();
+            println!("Unselected")
+        }
+        // dragging
+        if mouse_button_input.pressed(MouseButton::Left) && !state.is_dragging && is_hovered {
+            state.is_dragging = true;
+            println!("Dragging");
+        } else if mouse_button_input.just_released(MouseButton::Left) {
+            state.is_dragging = false;
+            println!("Not dragging");
+        }
+        // hover glow
+        if !state.is_glowing && is_hovered {
+            *texture = state.glow.clone();
+            state.is_glowing = true;
+            println!("Glowing");
+        } else if state.is_glowing && !state.is_selected && !is_hovered {
+            *texture = state.normal.clone();
+            state.is_glowing = false;
+            println!("Not glowing");
+        }
+    }
+}
+
+fn setup_clothes(
+    mut commands: Commands,
+    retro2d_assets: Res<Retro2dAssets>,
+    assets: Res<Assets<Image>>,
+) {
+    let hoodie = retro2d_assets.hoodie.clone();
+
+    let hoodie_bundle = SpriteBundle {
+        texture: hoodie.clone(),
+        transform: Transform {
+            translation: Vec3::new(0.0, 0.0, 0.0),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let hoodie_state = ItemState {
+        normal: hoodie.clone(),
+        glow: retro2d_assets.hoodie_glow.clone(),
+        selected: retro2d_assets.hoodie_selected.clone(),
+        is_glowing: false,
+        is_dragging: false,
+        is_selected: false,
+    };
+    let image = assets.get(hoodie.clone()).unwrap();
+    let bounding_box = Vec2::new(image.width() as f32, image.height() as f32);
+    let interactable = Interactable {
+        groups: vec![Group(ITEM_GROUP)],
+        bounding_box: (
+            Vec2::new(-bounding_box.x / 2.0, -bounding_box.y / 2.0),
+            Vec2::new(bounding_box.x / 2.0, bounding_box.y / 2.0),
+        ),
+    };
+    let draggable = Draggable {
+        groups: vec![Group(ITEM_GROUP)],
+        hook: None,
+        drop_strategy: DropStrategy::Leave,
+        lock_y: true,
+    };
+
+    commands
+        .spawn(Camera2dBundle::default())
+        .insert(InteractionSource {
+            groups: vec![
+                Group(BG_GROUP),
+                Group(ITEM_GROUP),
+            ],
+            ..Default::default()
+        });
+    let item = commands
+        .spawn((hoodie_bundle, hoodie_state))
+        .insert(interactable)
+        .insert(draggable)
+        .id();
+    commands
+        .spawn(SpatialBundle::from_transform(Transform {
+            scale: Vec3::new(1., 1., 1.),
+            ..Default::default()
+        }))
+        .push_children(&[item]);
 }
 
 fn setup_background(

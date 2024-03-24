@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::PresentMode;
-use retro_2d_lib::{AssetsPlugin, CameraPlugin, WorldPlugin};
+use retro_2d_lib::{AssetsPlugin, WorldPlugin};
 
 fn main() {
     App::new()
@@ -16,7 +16,6 @@ fn main() {
                 }),
         )
         .add_plugins(AssetsPlugin)
-        .add_plugins(CameraPlugin)
         .add_plugins(WorldPlugin)
         .run();
 }

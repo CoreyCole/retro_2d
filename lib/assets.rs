@@ -8,8 +8,9 @@ pub struct AssetsPlugin;
 #[derive(Resource)]
 pub struct Retro2dAssets {
     pub cows_and_basket: Handle<Image>,
-    pub hoodie_glow: Handle<Image>,
     pub hoodie: Handle<Image>,
+    pub hoodie_glow: Handle<Image>,
+    pub hoodie_selected: Handle<Image>,
 }
 
 impl Retro2dAssets {
@@ -37,8 +38,9 @@ impl Plugin for AssetsPlugin {
 fn load_startup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     let assets = Retro2dAssets {
         cows_and_basket: asset_server.load("cows_and_basket.png"),
-        hoodie_glow: asset_server.load("hoodie_glow.png"),
         hoodie: asset_server.load("hoodie.png"),
+        hoodie_glow: asset_server.load("hoodie_glow.png"),
+        hoodie_selected: asset_server.load("hoodie_selected.png"),
     };
     commands.insert_resource(assets);
 }
@@ -57,5 +59,5 @@ fn check_assets_loaded(
         }
     }
     println!("Assets loaded");
-    state.set(AppState::Menu);
+    state.set(AppState::Game);
 }
