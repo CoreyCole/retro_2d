@@ -73,14 +73,13 @@ impl Plugin for AssetsPlugin {
 }
 
 fn load_startup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let assets = Retro2dAssets {
+    commands.insert_resource(Retro2dAssets {
         cows_and_basket: asset_server.load("cows_and_basket.png"),
         hoodie: asset_server.load("hoodie.png"),
         hoodie_glow: asset_server.load("hoodie_glow.png"),
         hoodie_selected: asset_server.load("hoodie_selected.png"),
         transparent_rope: asset_server.load("transparent_rope.png"),
-    };
-    commands.insert_resource(assets);
+    });
 }
 
 fn check_assets_loaded(

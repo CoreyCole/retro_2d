@@ -1,62 +1,28 @@
+use crate::assets::{ImageAsset, Retro2dAssets};
+use crate::{Draggable, DropStrategy, Group, Interactable, InteractionSource, InteractionState};
 use bevy::prelude::*;
 
-use crate::assets::ImageAsset;
-use crate::{
-    AppState, DragPlugin, Draggable, DropStrategy, Group, Interactable, InteractionPlugin,
-    InteractionSource, InteractionState, Retro2dAssets,
-};
-
-pub struct WorldPlugin;
-
-const BG_GROUP: u8 = 0;
 const ITEM_GROUP: u8 = 1;
-const ROPE_SPACING: f32 = 400.0; // Distance between rope segments
-const NUM_ROPES: i32 = 9; // Number of rope segments to create
+const ROPE_SPACING: f32 = 400.0;
+const NUM_ROPES: i32 = 9;
 
 #[derive(Component)]
-struct Background;
-
-#[derive(Component)]
-struct Rope {
-    attached_to: Entity,
-    offset: Vec2,
+pub struct Rope {
+    pub attached_to: Entity,
+    pub offset: Vec2,
 }
 
 #[derive(Component, Clone)]
-struct ItemState {
-    normal: ImageAsset,
-    glow: ImageAsset,
-    selected: ImageAsset,
-    is_glowing: bool,
-    is_dragging: bool,
-    is_selected: bool,
+pub struct ItemState {
+    pub normal: ImageAsset,
+    pub glow: ImageAsset,
+    pub selected: ImageAsset,
+    pub is_glowing: bool,
+    pub is_dragging: bool,
+    pub is_selected: bool,
 }
 
-#[derive(Component, Clone)]
-struct InitialTransform {
-    translation: Vec3,
-    scale: Vec3,
-}
-
-impl Plugin for WorldPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((InteractionPlugin, DragPlugin));
-        app.add_systems(OnExit(AppState::AssetsLoading), setup_background);
-        app.add_systems(OnEnter(AppState::Game), setup_clothes);
-        app.add_systems(
-            Update,
-            (
-                interact_with_no_hover,
-                interact_with_items,
-                update_rope_position,
-                setup_sprite_transforms,
-            )
-                .run_if(in_state(AppState::Game)),
-        );
-    }
-}
-
-fn interact_with_no_hover(
+pub fn interact_with_no_hover(
     interaction_state: Res<InteractionState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut items: Query<(Entity, &mut ItemState)>,
@@ -78,7 +44,7 @@ fn interact_with_no_hover(
     }
 }
 
-fn interact_with_items(
+pub fn interact_with_items(
     interaction_state: Res<InteractionState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut items: Query<(Entity, &mut ItemState, &mut Sprite)>,
@@ -120,21 +86,7 @@ fn interact_with_items(
     }
 }
 
-fn setup_sprite_transforms(
-    mut commands: Commands,
-    mut sprites: Query<(Entity, &InitialTransform), Added<Sprite>>,
-) {
-    for (entity, initial_transform) in sprites.iter_mut() {
-        commands.entity(entity).insert(Transform {
-            translation: initial_transform.translation,
-            scale: initial_transform.scale,
-            ..Default::default()
-        });
-        commands.entity(entity).remove::<InitialTransform>();
-    }
-}
-
-fn setup_clothes(
+pub fn setup_clothes(
     mut commands: Commands,
     retro2d_assets: Res<Retro2dAssets>,
     assets: Res<Assets<Image>>,
@@ -145,17 +97,6 @@ fn setup_clothes(
 
     let hoodie = ImageAsset::new(retro2d_assets.hoodie.clone(), &assets);
     let rope = ImageAsset::new(retro2d_assets.transparent_rope.clone(), &assets);
-
-    // Setup hoodie
-    let hoodie_sprite = Sprite {
-        image: hoodie.handle.clone(),
-        ..Default::default()
-    };
-
-    let hoodie_initial_transform = InitialTransform {
-        translation: Vec3::new(0.0, 0.0, 1.0),
-        scale: Vec3::new(1.0, 1.0, 1.0),
-    };
 
     let hoodie_state = ItemState {
         normal: hoodie.clone(),
@@ -184,7 +125,7 @@ fn setup_clothes(
     // Setup camera
     commands.spawn(Camera2d).insert(InteractionSource {
         groups: vec![
-            Group(BG_GROUP),
+            Group(0), // BG_GROUP
             Group(ITEM_GROUP),
         ],
         ..Default::default()
@@ -193,8 +134,14 @@ fn setup_clothes(
     // Spawn hoodie as parent entity
     let hoodie_entity = commands
         .spawn((
-            hoodie_sprite.clone(),
-            hoodie_initial_transform.clone(),
+            Sprite {
+                image: hoodie.handle.clone(),
+                ..Default::default()
+            },
+            Transform {
+                translation: Vec3::new(0.0, 0.0, 1.0),
+                ..Default::default()
+            },
             hoodie_state.clone(),
             interactable.clone(),
             draggable.clone(),
@@ -202,7 +149,7 @@ fn setup_clothes(
         .id();
 
     // Calculate rope offset based on hoodie height
-    let rope_offset = hoodie.height / 2. - 20.;
+    let rope_offset = hoodie.height / 2.0 - 20.;
 
     // Create multiple ropes across the screen
     let start_x = -(window_width as f32 / 2.0) * ROPE_SPACING;
@@ -217,25 +164,30 @@ fn setup_clothes(
         ))
         .with_children(|parent| {
             parent.spawn((
-                hoodie_sprite,
-                hoodie_initial_transform,
+                Sprite {
+                    image: rope.handle.clone(),
+                    ..Default::default()
+                },
+                Transform {
+                    translation: Vec3::new(0.0, 0.0, 5.0),
+                    ..Default::default()
+                },
                 hoodie_state,
                 interactable,
                 draggable,
             ));
             for i in 0..NUM_ROPES {
-                let x_pos = start_x + (i as f32 * ROPE_SPACING) - (window_width / 2.0);
+                let x_pos = start_x + (i as f32 * ROPE_SPACING);
                 let rope_sprite = Sprite {
                     image: rope.handle.clone(),
                     ..Default::default()
                 };
-                let rope_initial_transform = InitialTransform {
-                    translation: Vec3::new(x_pos, rope_offset, 0.0),
-                    scale: Vec3::new(1.0, 1.0, 1.0),
-                };
                 parent.spawn((
                     rope_sprite,
-                    rope_initial_transform,
+                    Transform {
+                        translation: Vec3::new(x_pos, rope_offset, 1.0),
+                        ..Default::default()
+                    },
                     Rope {
                         attached_to: hoodie_entity,
                         offset: Vec2::new(x_pos, rope_offset),
@@ -245,7 +197,7 @@ fn setup_clothes(
         });
 }
 
-fn update_rope_position(
+pub fn update_rope_position(
     mut ropes: Query<(&mut Transform, &Rope)>,
     items: Query<&Transform, (With<ItemState>, Without<Rope>)>,
 ) {
@@ -274,38 +226,4 @@ fn update_rope_position(
             rope_transform.translation.y = item_transform.translation.y + rope.offset.y;
         }
     }
-}
-
-fn setup_background(
-    mut commands: Commands,
-    retro2d_assets: Res<Retro2dAssets>,
-    windows: Query<&Window>,
-    assets: Res<Assets<Image>>,
-) {
-    let window = windows.single();
-    let background = ImageAsset::new(retro2d_assets.cows_and_basket.clone(), &assets);
-    let window_aspect_ratio = window.width() / window.height();
-    let image_width = background.width;
-    let image_height = background.height;
-
-    let image_aspect_ratio = image_width / image_height;
-    let scale = if window_aspect_ratio > image_aspect_ratio {
-        window.height() / image_height
-    } else {
-        window.width() / image_width
-    };
-
-    let sprite = Sprite {
-        image: background.handle.clone(),
-        ..Default::default()
-    };
-
-    let initial_transform = InitialTransform {
-        translation: Vec3::new(0.0, 0.0, -100.0),
-        scale: Vec3::new(scale, scale, 1.0),
-    };
-
-    commands
-        .spawn((sprite, initial_transform))
-        .insert(Background);
 }
