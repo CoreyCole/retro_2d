@@ -11,6 +11,7 @@ pub struct Retro2dAssets {
     pub hoodie: Handle<Image>,
     pub hoodie_glow: Handle<Image>,
     pub hoodie_selected: Handle<Image>,
+    pub transparent_rope: Handle<Image>,
 }
 
 impl Retro2dAssets {
@@ -19,6 +20,7 @@ impl Retro2dAssets {
             &self.cows_and_basket,
             &self.hoodie_glow,
             &self.hoodie,
+            &self.transparent_rope,
         ]
         .into_iter()
     }
@@ -41,6 +43,7 @@ fn load_startup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
         hoodie: asset_server.load("hoodie.png"),
         hoodie_glow: asset_server.load("hoodie_glow.png"),
         hoodie_selected: asset_server.load("hoodie_selected.png"),
+        transparent_rope: asset_server.load("transparent_rope.png"),
     };
     commands.insert_resource(assets);
 }

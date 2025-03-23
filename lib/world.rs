@@ -14,6 +14,12 @@ const ITEM_GROUP: u8 = 1;
 struct Background;
 
 #[derive(Component)]
+struct Rope {
+    attached_to: Entity,
+    offset: Vec2,
+}
+
+#[derive(Component)]
 struct ItemState {
     normal: Handle<Image>,
     glow: Handle<Image>,
@@ -30,11 +36,12 @@ impl Plugin for WorldPlugin {
         app.add_systems(OnEnter(AppState::Game), setup_clothes);
         app.add_systems(
             Update,
-            { interact_with_no_hover }.run_if(in_state(AppState::Game)),
-        );
-        app.add_systems(
-            Update,
-            { interact_with_items }.run_if(in_state(AppState::Game)),
+            (
+                interact_with_no_hover,
+                interact_with_items,
+                update_rope_position,
+            )
+                .run_if(in_state(AppState::Game)),
         );
     }
 }
@@ -110,11 +117,13 @@ fn setup_clothes(
     assets: Res<Assets<Image>>,
 ) {
     let hoodie = retro2d_assets.hoodie.clone();
+    let rope = retro2d_assets.transparent_rope.clone();
 
+    // Setup hoodie
     let hoodie_bundle = SpriteBundle {
         texture: hoodie.clone(),
         transform: Transform {
-            translation: Vec3::new(0.0, 0.0, 0.0),
+            translation: Vec3::new(0.0, 0.0, 1.0),
             ..Default::default()
         },
         ..Default::default()
@@ -143,6 +152,7 @@ fn setup_clothes(
         lock_y: true,
     };
 
+    // Setup camera
     commands
         .spawn(Camera2dBundle::default())
         .insert(InteractionSource {
@@ -152,17 +162,63 @@ fn setup_clothes(
             ],
             ..Default::default()
         });
+
+    // Spawn hoodie
     let item = commands
         .spawn((hoodie_bundle, hoodie_state))
         .insert(interactable)
         .insert(draggable)
         .id();
+
+    // Spawn rope
+    let rope_image = assets.get(rope.clone()).unwrap();
+    let hoodie_image = assets.get(hoodie.clone()).unwrap();
+
+    // Calculate the offset from the hoodie's center to its top
+    let hoodie_half_height = hoodie_image.height() as f32 / 2.0;
+    let rope_offset = hoodie_half_height - 20.0; // Consistent offset value
+
+    // Position rope just above the hoodie
+    let rope_bundle = SpriteBundle {
+        texture: rope.clone(),
+        transform: Transform {
+            translation: Vec3::new(0.0, rope_offset, 1.0),
+            ..Default::default()
+        },
+        sprite: Sprite {
+            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let rope_entity = commands
+        .spawn(rope_bundle)
+        .insert(Rope {
+            attached_to: item,
+            offset: Vec2::new(0.0, rope_offset),
+        })
+        .id();
+
+    // Create parent entity for organization
     commands
         .spawn(SpatialBundle::from_transform(Transform {
             scale: Vec3::new(1., 1., 1.),
             ..Default::default()
         }))
-        .push_children(&[item]);
+        .push_children(&[item, rope_entity]);
+}
+
+fn update_rope_position(
+    mut ropes: Query<(&mut Transform, &Rope)>,
+    items: Query<&Transform, Without<Rope>>,
+) {
+    for (mut rope_transform, rope) in ropes.iter_mut() {
+        if let Ok(item_transform) = items.get(rope.attached_to) {
+            rope_transform.translation.x = item_transform.translation.x;
+            rope_transform.translation.y = item_transform.translation.y + rope.offset.y;
+        }
+    }
 }
 
 fn setup_background(
