@@ -25,8 +25,8 @@ impl From<ImageAsset> for Handle<Image> {
 }
 
 impl ImageAsset {
-    fn new(handle: Handle<Image>, assets: &Assets<Image>) -> Self {
-        let image = assets.get(&handle).unwrap();
+    pub fn new(handle: Handle<Image>, assets: &Assets<Image>) -> Self {
+        let image = assets.get(&handle).expect("Failed to get image asset");
         Self {
             handle,
             width: image.width() as f32,
@@ -56,7 +56,7 @@ impl Retro2dAssets {
     }
 
     pub fn get_dimensions(&self, handle: &Handle<Image>, assets: &Assets<Image>) -> (f32, f32) {
-        let image = assets.get(handle).unwrap();
+        let image = assets.get(handle).expect("Failed to get image asset");
         (image.width() as f32, image.height() as f32)
     }
 }
@@ -67,7 +67,7 @@ impl Plugin for AssetsPlugin {
         app.add_systems(Startup, load_startup_assets);
         app.add_systems(
             Update,
-            { check_assets_loaded }.run_if(in_state(AppState::AssetsLoading)),
+            check_assets_loaded.run_if(in_state(AppState::AssetsLoading)),
         );
     }
 }
@@ -89,11 +89,14 @@ fn check_assets_loaded(
     retro2d_assets: Res<Retro2dAssets>,
 ) {
     for handle in retro2d_assets.iter() {
-        let load_state = asset_server
-            .get_load_state(handle)
-            .unwrap_or(LoadState::NotLoaded);
-        if load_state != LoadState::Loaded {
-            return;
+        match asset_server.get_load_state(handle) {
+            Some(LoadState::Loaded) => continue,
+            Some(LoadState::NotLoaded) | Some(LoadState::Loading) => return,
+            Some(LoadState::Failed(error)) => {
+                println!("Failed to load asset: {}", error);
+                return;
+            }
+            None => return,
         }
     }
     println!("Assets loaded");

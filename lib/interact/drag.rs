@@ -62,12 +62,13 @@ pub fn drag_system(
     }
 }
 
+#[derive(Clone)]
 pub enum DropStrategy {
     Reset,
     Leave,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Draggable {
     // Where the entity is hooked onto the cursor while dragging.
     // If no hook is given, the entity will be pinned to the cursor

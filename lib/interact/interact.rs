@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-
-use bevy::{ecs::event::ManualEventReader, render::camera::Camera};
+use bevy::render::camera::Camera;
 
 /// The interaction plugin adds cursor interactions for entities
 /// with the Interactable component.
@@ -42,14 +41,12 @@ impl InteractionState {
 #[derive(Component)]
 pub struct InteractionSource {
     pub groups: Vec<Group>,
-    pub cursor_events: ManualEventReader<CursorMoved>,
 }
 
 impl Default for InteractionSource {
     fn default() -> Self {
         Self {
             groups: vec![Group::default()],
-            cursor_events: ManualEventReader::default(),
         }
     }
 }
@@ -59,18 +56,36 @@ impl Default for InteractionSource {
 fn interaction_state_system(
     mut interaction_state: ResMut<InteractionState>,
     mut cursor_moved: EventReader<CursorMoved>,
-    mut sources: Query<(&mut InteractionSource, &GlobalTransform, Option<&Camera>)>,
+    sources: Query<(&InteractionSource, &GlobalTransform, Option<&Camera>)>,
     windows: Query<&Window>,
 ) {
     interaction_state.cursor_positions.clear();
+    let window = windows.single();
 
-    for (interact_source, global_transform, camera) in sources.iter_mut() {
+    for (interact_source, global_transform, camera) in sources.iter() {
         for evt in cursor_moved.read() {
             interaction_state.last_window_id = evt.window.index();
             interaction_state.last_cursor_position = evt.position;
         }
         let projection_matrix = match camera {
-            Some(camera) => camera.projection_matrix(),
+            Some(camera) => {
+                let viewport_size = camera
+                    .logical_viewport_size()
+                    .unwrap_or(Vec2::new(window.width(), window.height()));
+                // Create an orthographic projection matrix for 2D rendering
+                // Parameters define the view frustum:
+                // - Left/right bounds: centered on 0, extending to +/- half viewport width
+                // - Top/bottom bounds: centered on 0, extending to +/- half viewport height
+                // - Near/far planes: 0.0 to 1.0 for 2D
+                Mat4::orthographic_rh(
+                    -viewport_size.x / 2.0,
+                    viewport_size.x / 2.0,
+                    -viewport_size.y / 2.0,
+                    viewport_size.y / 2.0,
+                    0.0,
+                    1.0,
+                )
+            }
             None => panic!("Interacting without camera not supported."),
         };
         let window = windows.single();
@@ -102,7 +117,7 @@ fn interaction_state_system(
 }
 
 /// This component makes an entity interactable with the mouse cursor
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Interactable {
     /// The interaction groups this interactable entity belongs to
     pub groups: Vec<Group>,

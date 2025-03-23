@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::assets::ImageAsset;
 use crate::{
     AppState, DragPlugin, Draggable, DropStrategy, Group, Interactable, InteractionPlugin,
     InteractionSource, InteractionState, Retro2dAssets,
@@ -21,14 +22,20 @@ struct Rope {
     offset: Vec2,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct ItemState {
-    normal: Handle<Image>,
-    glow: Handle<Image>,
-    selected: Handle<Image>,
+    normal: ImageAsset,
+    glow: ImageAsset,
+    selected: ImageAsset,
     is_glowing: bool,
     is_dragging: bool,
     is_selected: bool,
+}
+
+#[derive(Component, Clone)]
+struct InitialTransform {
+    translation: Vec3,
+    scale: Vec3,
 }
 
 impl Plugin for WorldPlugin {
@@ -42,6 +49,7 @@ impl Plugin for WorldPlugin {
                 interact_with_no_hover,
                 interact_with_items,
                 update_rope_position,
+                setup_sprite_transforms,
             )
                 .run_if(in_state(AppState::Game)),
         );
@@ -51,10 +59,10 @@ impl Plugin for WorldPlugin {
 fn interact_with_no_hover(
     interaction_state: Res<InteractionState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut items: Query<(Entity, &mut Handle<Image>, &mut ItemState)>,
+    mut items: Query<(Entity, &mut ItemState)>,
 ) {
     let mut no_hover = false;
-    for (entity, _, _) in items.iter_mut() {
+    for (entity, _) in items.iter_mut() {
         let is_hovered = interaction_state
             .get_group(Group(ITEM_GROUP))
             .iter()
@@ -63,10 +71,9 @@ fn interact_with_no_hover(
     }
     if !no_hover && mouse_button_input.just_pressed(MouseButton::Left) {
         println!("No hover");
-        for (_, mut texture, mut state) in items.iter_mut() {
+        for (_, mut state) in items.iter_mut() {
             state.is_selected = false;
             state.is_glowing = false;
-            *texture = state.normal.clone();
         }
     }
 }
@@ -74,9 +81,9 @@ fn interact_with_no_hover(
 fn interact_with_items(
     interaction_state: Res<InteractionState>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut items: Query<(Entity, &mut Handle<Image>, &mut ItemState)>,
+    mut items: Query<(Entity, &mut ItemState, &mut Sprite)>,
 ) {
-    for (entity, mut texture, mut state) in items.iter_mut() {
+    for (entity, mut state, mut sprite) in items.iter_mut() {
         let is_hovered = interaction_state
             .get_group(Group(ITEM_GROUP))
             .iter()
@@ -85,11 +92,11 @@ fn interact_with_items(
         // selection
         if !state.is_selected && mouse_button_input.just_pressed(MouseButton::Left) && is_hovered {
             state.is_selected = true;
-            *texture = state.selected.clone();
+            sprite.image = state.selected.handle.clone();
             println!("Selected");
         } else if mouse_button_input.just_pressed(MouseButton::Left) && !is_hovered {
             state.is_selected = false;
-            *texture = state.normal.clone();
+            sprite.image = state.normal.handle.clone();
             println!("Unselected")
         }
         // dragging
@@ -102,14 +109,28 @@ fn interact_with_items(
         }
         // hover glow
         if !state.is_glowing && is_hovered {
-            *texture = state.glow.clone();
+            sprite.image = state.glow.handle.clone();
             state.is_glowing = true;
             println!("Glowing");
         } else if state.is_glowing && !state.is_selected && !is_hovered {
-            *texture = state.normal.clone();
+            sprite.image = state.normal.handle.clone();
             state.is_glowing = false;
             println!("Not glowing");
         }
+    }
+}
+
+fn setup_sprite_transforms(
+    mut commands: Commands,
+    mut sprites: Query<(Entity, &InitialTransform), Added<Sprite>>,
+) {
+    for (entity, initial_transform) in sprites.iter_mut() {
+        commands.entity(entity).insert(Transform {
+            translation: initial_transform.translation,
+            scale: initial_transform.scale,
+            ..Default::default()
+        });
+        commands.entity(entity).remove::<InitialTransform>();
     }
 }
 
@@ -122,36 +143,37 @@ fn setup_clothes(
     let window = windows.single();
     let window_width = window.width();
 
-    let hoodie = retro2d_assets.hoodie.clone();
-    let rope = retro2d_assets.transparent_rope.clone();
+    let hoodie = ImageAsset::new(retro2d_assets.hoodie.clone(), &assets);
+    let rope = ImageAsset::new(retro2d_assets.transparent_rope.clone(), &assets);
 
     // Setup hoodie
-    let hoodie_bundle = SpriteBundle {
-        texture: hoodie.clone(),
-        transform: Transform {
-            translation: Vec3::new(0.0, 0.0, 1.0),
-            ..Default::default()
-        },
+    let hoodie_sprite = Sprite {
+        image: hoodie.handle.clone(),
         ..Default::default()
     };
+
+    let hoodie_initial_transform = InitialTransform {
+        translation: Vec3::new(0.0, 0.0, 1.0),
+        scale: Vec3::new(1.0, 1.0, 1.0),
+    };
+
     let hoodie_state = ItemState {
         normal: hoodie.clone(),
-        glow: retro2d_assets.hoodie_glow.clone(),
-        selected: retro2d_assets.hoodie_selected.clone(),
+        glow: ImageAsset::new(retro2d_assets.hoodie_glow.clone(), &assets),
+        selected: ImageAsset::new(retro2d_assets.hoodie_selected.clone(), &assets),
         is_glowing: false,
         is_dragging: false,
         is_selected: false,
     };
 
-    let (width, height) = retro2d_assets.get_dimensions(&hoodie, &assets);
-    let bounding_box = Vec2::new(width, height);
     let interactable = Interactable {
         groups: vec![Group(ITEM_GROUP)],
         bounding_box: (
-            Vec2::new(-bounding_box.x / 2.0, -bounding_box.y / 2.0),
-            Vec2::new(bounding_box.x / 2.0, bounding_box.y / 2.0),
+            Vec2::new(-hoodie.width / 2.0, -hoodie.height / 2.0),
+            Vec2::new(hoodie.width / 2.0, hoodie.height / 2.0),
         ),
     };
+
     let draggable = Draggable {
         groups: vec![Group(ITEM_GROUP)],
         hook: None,
@@ -160,77 +182,73 @@ fn setup_clothes(
     };
 
     // Setup camera
-    commands
-        .spawn(Camera2dBundle::default())
-        .insert(InteractionSource {
-            groups: vec![
-                Group(BG_GROUP),
-                Group(ITEM_GROUP),
-            ],
-            ..Default::default()
-        });
+    commands.spawn(Camera2d).insert(InteractionSource {
+        groups: vec![
+            Group(BG_GROUP),
+            Group(ITEM_GROUP),
+        ],
+        ..Default::default()
+    });
 
-    // Spawn hoodie
-    let item = commands
-        .spawn((hoodie_bundle, hoodie_state))
-        .insert(interactable)
-        .insert(draggable)
+    // Spawn hoodie as parent entity
+    let hoodie_entity = commands
+        .spawn((
+            hoodie_sprite.clone(),
+            hoodie_initial_transform.clone(),
+            hoodie_state.clone(),
+            interactable.clone(),
+            draggable.clone(),
+        ))
         .id();
 
-    // Calculate the offset from the hoodie's center to its top
-    let hoodie_half_height = height / 2.0;
-    let rope_offset = hoodie_half_height - 20.0;
+    // Calculate rope offset based on hoodie height
+    let rope_offset = hoodie.height / 2. - 20.;
 
     // Create multiple ropes across the screen
     let start_x = -(window_width as f32 / 2.0) * ROPE_SPACING;
-    let mut rope_entities = Vec::new();
 
-    for i in 0..NUM_ROPES {
-        let x_pos = start_x + (i as f32 * ROPE_SPACING);
-
-        let rope_bundle = SpriteBundle {
-            texture: rope.clone(),
-            transform: Transform {
-                translation: Vec3::new(x_pos, rope_offset, 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgba(1.0, 1.0, 1.0, 1.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        let rope_entity = commands
-            .spawn(rope_bundle)
-            .insert(Rope {
-                attached_to: item,
-                offset: Vec2::new(x_pos, rope_offset),
-            })
-            .id();
-
-        rope_entities.push(rope_entity);
-    }
-
-    // Create parent entity for organization
     commands
-        .spawn(SpatialBundle::from_transform(Transform {
-            scale: Vec3::new(1., 1., 1.),
-            ..Default::default()
-        }))
-        .push_children(&[item])
-        .push_children(&rope_entities);
+        .spawn((
+            Transform {
+                scale: Vec3::new(1., 1., 1.),
+                ..Default::default()
+            },
+            Visibility::default(),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                hoodie_sprite,
+                hoodie_initial_transform,
+                hoodie_state,
+                interactable,
+                draggable,
+            ));
+            for i in 0..NUM_ROPES {
+                let x_pos = start_x + (i as f32 * ROPE_SPACING) - (window_width / 2.0);
+                let rope_sprite = Sprite {
+                    image: rope.handle.clone(),
+                    ..Default::default()
+                };
+                let rope_initial_transform = InitialTransform {
+                    translation: Vec3::new(x_pos, rope_offset, 0.0),
+                    scale: Vec3::new(1.0, 1.0, 1.0),
+                };
+                parent.spawn((
+                    rope_sprite,
+                    rope_initial_transform,
+                    Rope {
+                        attached_to: hoodie_entity,
+                        offset: Vec2::new(x_pos, rope_offset),
+                    },
+                ));
+            }
+        });
 }
 
 fn update_rope_position(
-    mut ropes: Query<(&mut Transform, &mut Rope)>,
-    items: Query<&Transform, Without<Rope>>,
-    windows: Query<&Window>,
+    mut ropes: Query<(&mut Transform, &Rope)>,
+    items: Query<&Transform, (With<ItemState>, Without<Rope>)>,
 ) {
-    let window = windows.single();
-    let window_width = window.width();
-    let half_width = window_width / 2.0;
-
     for (mut rope_transform, rope) in ropes.iter_mut() {
         if let Ok(item_transform) = items.get(rope.attached_to) {
             let item_x = item_transform.translation.x;
@@ -265,10 +283,10 @@ fn setup_background(
     assets: Res<Assets<Image>>,
 ) {
     let window = windows.single();
-    let image = assets.get(retro2d_assets.cows_and_basket.clone()).unwrap();
+    let background = ImageAsset::new(retro2d_assets.cows_and_basket.clone(), &assets);
     let window_aspect_ratio = window.width() / window.height();
-    let image_width = image.width() as f32;
-    let image_height = image.height() as f32;
+    let image_width = background.width;
+    let image_height = background.height;
 
     let image_aspect_ratio = image_width / image_height;
     let scale = if window_aspect_ratio > image_aspect_ratio {
@@ -277,15 +295,17 @@ fn setup_background(
         window.width() / image_width
     };
 
-    let sprite_bundle = SpriteBundle {
-        texture: retro2d_assets.cows_and_basket.clone(),
-        transform: Transform {
-            scale: Vec3::new(scale, scale, 1.),
-            translation: Vec3::new(0.0, 0.0, 0.0),
-            ..Default::default()
-        },
+    let sprite = Sprite {
+        image: background.handle.clone(),
         ..Default::default()
     };
 
-    commands.spawn(sprite_bundle).insert(Background);
+    let initial_transform = InitialTransform {
+        translation: Vec3::new(0.0, 0.0, -100.0),
+        scale: Vec3::new(scale, scale, 1.0),
+    };
+
+    commands
+        .spawn((sprite, initial_transform))
+        .insert(Background);
 }
