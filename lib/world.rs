@@ -9,6 +9,8 @@ pub struct WorldPlugin;
 
 const BG_GROUP: u8 = 0;
 const ITEM_GROUP: u8 = 1;
+const ROPE_SPACING: f32 = 400.0; // Distance between rope segments
+const NUM_ROPES: i32 = 9; // Number of rope segments to create
 
 #[derive(Component)]
 struct Background;
@@ -115,7 +117,11 @@ fn setup_clothes(
     mut commands: Commands,
     retro2d_assets: Res<Retro2dAssets>,
     assets: Res<Assets<Image>>,
+    windows: Query<&Window>,
 ) {
+    let window = windows.single();
+    let window_width = window.width();
+
     let hoodie = retro2d_assets.hoodie.clone();
     let rope = retro2d_assets.transparent_rope.clone();
 
@@ -136,8 +142,9 @@ fn setup_clothes(
         is_dragging: false,
         is_selected: false,
     };
-    let image = assets.get(hoodie.clone()).unwrap();
-    let bounding_box = Vec2::new(image.width() as f32, image.height() as f32);
+
+    let (width, height) = retro2d_assets.get_dimensions(&hoodie, &assets);
+    let bounding_box = Vec2::new(width, height);
     let interactable = Interactable {
         groups: vec![Group(ITEM_GROUP)],
         bounding_box: (
@@ -170,35 +177,40 @@ fn setup_clothes(
         .insert(draggable)
         .id();
 
-    // Spawn rope
-    let rope_image = assets.get(rope.clone()).unwrap();
-    let hoodie_image = assets.get(hoodie.clone()).unwrap();
-
     // Calculate the offset from the hoodie's center to its top
-    let hoodie_half_height = hoodie_image.height() as f32 / 2.0;
-    let rope_offset = hoodie_half_height - 20.0; // Consistent offset value
+    let hoodie_half_height = height / 2.0;
+    let rope_offset = hoodie_half_height - 20.0;
 
-    // Position rope just above the hoodie
-    let rope_bundle = SpriteBundle {
-        texture: rope.clone(),
-        transform: Transform {
-            translation: Vec3::new(0.0, rope_offset, 1.0),
-            ..Default::default()
-        },
-        sprite: Sprite {
-            color: Color::rgba(1.0, 1.0, 1.0, 1.0),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
+    // Create multiple ropes across the screen
+    let start_x = -(window_width as f32 / 2.0) * ROPE_SPACING;
+    let mut rope_entities = Vec::new();
 
-    let rope_entity = commands
-        .spawn(rope_bundle)
-        .insert(Rope {
-            attached_to: item,
-            offset: Vec2::new(0.0, rope_offset),
-        })
-        .id();
+    for i in 0..NUM_ROPES {
+        let x_pos = start_x + (i as f32 * ROPE_SPACING);
+
+        let rope_bundle = SpriteBundle {
+            texture: rope.clone(),
+            transform: Transform {
+                translation: Vec3::new(x_pos, rope_offset, 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let rope_entity = commands
+            .spawn(rope_bundle)
+            .insert(Rope {
+                attached_to: item,
+                offset: Vec2::new(x_pos, rope_offset),
+            })
+            .id();
+
+        rope_entities.push(rope_entity);
+    }
 
     // Create parent entity for organization
     commands
@@ -206,16 +218,41 @@ fn setup_clothes(
             scale: Vec3::new(1., 1., 1.),
             ..Default::default()
         }))
-        .push_children(&[item, rope_entity]);
+        .push_children(&[item])
+        .push_children(&rope_entities);
 }
 
 fn update_rope_position(
-    mut ropes: Query<(&mut Transform, &Rope)>,
+    mut ropes: Query<(&mut Transform, &mut Rope)>,
     items: Query<&Transform, Without<Rope>>,
+    windows: Query<&Window>,
 ) {
+    let window = windows.single();
+    let window_width = window.width();
+    let half_width = window_width / 2.0;
+
     for (mut rope_transform, rope) in ropes.iter_mut() {
         if let Ok(item_transform) = items.get(rope.attached_to) {
-            rope_transform.translation.x = item_transform.translation.x;
+            let item_x = item_transform.translation.x;
+
+            // Calculate the base position relative to the hoodie
+            let mut rope_x = item_x + rope.offset.x;
+
+            // Wrap the rope when it goes too far from the center
+            let total_width = ROPE_SPACING * (NUM_ROPES as f32);
+            let wrap_threshold = total_width / 2.0;
+
+            // Wrap to the left side when too far right
+            while rope_x - item_x > wrap_threshold {
+                rope_x -= total_width;
+            }
+
+            // Wrap to the right side when too far left
+            while rope_x - item_x < -wrap_threshold {
+                rope_x += total_width;
+            }
+
+            rope_transform.translation.x = rope_x;
             rope_transform.translation.y = item_transform.translation.y + rope.offset.y;
         }
     }

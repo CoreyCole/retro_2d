@@ -5,6 +5,36 @@ use crate::config::AppState;
 
 pub struct AssetsPlugin;
 
+#[derive(Clone)]
+pub struct ImageAsset {
+    pub handle: Handle<Image>,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl From<&ImageAsset> for Handle<Image> {
+    fn from(asset: &ImageAsset) -> Self {
+        asset.handle.clone()
+    }
+}
+
+impl From<ImageAsset> for Handle<Image> {
+    fn from(asset: ImageAsset) -> Self {
+        asset.handle
+    }
+}
+
+impl ImageAsset {
+    fn new(handle: Handle<Image>, assets: &Assets<Image>) -> Self {
+        let image = assets.get(&handle).unwrap();
+        Self {
+            handle,
+            width: image.width() as f32,
+            height: image.height() as f32,
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct Retro2dAssets {
     pub cows_and_basket: Handle<Image>,
@@ -23,6 +53,11 @@ impl Retro2dAssets {
             &self.transparent_rope,
         ]
         .into_iter()
+    }
+
+    pub fn get_dimensions(&self, handle: &Handle<Image>, assets: &Assets<Image>) -> (f32, f32) {
+        let image = assets.get(handle).unwrap();
+        (image.width() as f32, image.height() as f32)
     }
 }
 
