@@ -5,7 +5,7 @@ public_url = "/"
 
 [watch]
 watch = ["lib", "bin", "assets", "index.html", "index.css"]
-ignore = ["target/", "dist/"]
+ignore = ["target", "dist"]
 
 [serve]
 address = "127.0.0.1"

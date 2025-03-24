@@ -27,14 +27,18 @@ jobs:
           curl -L https://github.com/trunk-rs/trunk/releases/download/v0.18.7/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xz
           sudo mv trunk /usr/local/bin/
       
-      - name: Verify config files
+      - name: Verify config files and directory structure
         run: |
+          pwd
           ls -la
           echo "Content of Trunk.toml:"
           cat Trunk.toml
+          echo "Creating directories if they don't exist:"
+          mkdir -p target dist
+          ls -la
       
       - name: Build
-        run: trunk build --release --verbose
+        run: trunk build --release
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
