@@ -1,7 +1,7 @@
 [build]
 target = "index.html"
 dist = "dist"
-public_url = "/"
+public_url = "/retro_2d/"
 
 [watch]
 watch = ["lib", "bin", "assets", "index.html", "index.css"]
@@ -20,3 +20,11 @@ dir = "."  # Serve from the root, not just assets directory
 [[serve.mime_types]]
 extension = "png"
 mime_type = "image/png"
+
+[[serve.mime_types]]
+extension = "js"
+mime_type = "application/javascript"
+
+[[serve.mime_types]]
+extension = "wasm"
+mime_type = "application/wasm"
