@@ -22,6 +22,12 @@ jobs:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: "wasm-build"
+      
       - name: Install Trunk
         run: |
           curl -L https://github.com/trunk-rs/trunk/releases/download/v0.18.7/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xz
