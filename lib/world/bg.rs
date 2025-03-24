@@ -23,16 +23,9 @@ pub fn setup_background(
         window.width() / image_width
     };
 
-    commands
-        .spawn((
-            Sprite {
-                image: background.handle.clone(),
-                ..Default::default()
-            },
-            Transform {
-                scale: Vec3::new(scale, scale, 1.0),
-                ..Default::default()
-            },
-        ))
-        .insert(Background);
+    commands.spawn((
+        Sprite::from_image(background.handle.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(scale, scale, 1.0)),
+        Background,
+    ));
 }

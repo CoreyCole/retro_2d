@@ -32,6 +32,10 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         present_mode: PresentMode::AutoNoVsync,
+                        fit_canvas_to_parent: true,
+                        canvas: Some("#bevy-canvas".to_string()),
+                        resolution: (800.0, 600.0).into(),
+                        prevent_default_event_handling: false,
                         ..default()
                     }),
                     ..default()
@@ -52,6 +56,9 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         present_mode: PresentMode::AutoNoVsync,
+                        resolution: (1280.0, 900.0).into(),
+                        title: "Retro 2D Game".to_string(),
+                        resizable: true,
                         ..default()
                     }),
                     ..default()
