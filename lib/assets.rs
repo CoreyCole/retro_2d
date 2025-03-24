@@ -134,7 +134,7 @@ fn check_assets_loaded(
 
     // On native, only proceed if all assets loaded
     #[cfg(not(target_arch = "wasm32"))]
-    if all_loaded {
+    if all_loaded || any_failed {
         state.set(AppState::Game);
     }
 }

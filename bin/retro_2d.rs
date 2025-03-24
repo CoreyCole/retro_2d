@@ -1,4 +1,3 @@
-use bevy::asset::AssetMetaCheck;
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy_embedded_assets::EmbeddedAssetPlugin;
@@ -38,7 +37,6 @@ fn main() {
                     ..default()
                 })
                 .set(AssetPlugin {
-                    meta_check: AssetMetaCheck::Never,
                     watch_for_changes_override: Some(false),
                     mode: AssetMode::Unprocessed,
                     ..default()
