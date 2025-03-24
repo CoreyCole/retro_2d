@@ -1,5 +1,16 @@
+<!DOCTYPE html>
 <html>
-<head>
-    <link data-trunk rel="scss" href="./index.scss" />
-</head>
+  <head>
+    <meta charset="utf-8" />
+    <title>Retro 2D Game</title>
+    <link data-trunk rel="css" href="index.css" />
+    <!-- The following line is still needed for development, but assets will be embedded in the binary for production -->
+    <link data-trunk rel="copy-dir" href="assets" data-target-path="assets" />
+    <!-- Add favicon -->
+    <link data-trunk rel="icon" href="assets/hoodie.png" />
+  </head>
+  <body>
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="retro_2d" />
+    <canvas id="bevy-canvas"></canvas>
+  </body>
 </html>

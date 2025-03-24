@@ -32,15 +32,14 @@ codegen-units=1
 
 [dependencies]
 anyhow = "1.0.71"
-bevy = { version = "0.15.3" }
-serde = { version = "1.0.197", features = ["derive"] }
-serde_json = "1.0.114"
+bevy = { version = "0.15.3", features = ["webgl2"] }
+bevy_embedded_assets = "0.12.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [target.wasm32-unknown-unknown.dependencies]
 console_log = { version = "1.0.0" }
 console_error_panic_hook = { version = "0.1.6" } # When building for WASM, print panics to the browser console
+log = "0.4" # Required for console_log
 wee_alloc = { version = "0.4.5" } # https://rustwasm.github.io/docs/wasm-pack/tutorials/npm-browser-packages/template-deep-dive/wee_alloc.html
-web-sys = { version = "0.3", features = ['Performance'] }
-
-[target.wasm32-unknown-unknown.features]
-default = ["console_error_panic_hook", "wee_alloc"]
+web-sys = { version = "0.3", features = ['Performance', 'console'] } # Add console feature for web logging

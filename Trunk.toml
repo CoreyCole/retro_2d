@@ -1,0 +1,22 @@
+[build]
+target = "index.html"
+dist = "dist"
+public_url = "/"
+
+[watch]
+watch = ["lib", "bin", "assets", "index.html", "index.css"]
+ignore = ["target", "dist"]
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+open = false
+
+# Asset serving configuration
+[serve.static_dir]
+dir = "."  # Serve from the root, not just assets directory
+
+# MIME types configuration
+[[serve.mime_types]]
+extension = "png"
+mime_type = "image/png"

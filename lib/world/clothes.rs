@@ -36,7 +36,6 @@ pub fn interact_with_no_hover(
         no_hover |= is_hovered;
     }
     if !no_hover && mouse_button_input.just_pressed(MouseButton::Left) {
-        println!("No hover");
         for (_, mut state) in items.iter_mut() {
             state.is_selected = false;
             state.is_glowing = false;
@@ -59,29 +58,23 @@ pub fn interact_with_items(
         if !state.is_selected && mouse_button_input.just_pressed(MouseButton::Left) && is_hovered {
             state.is_selected = true;
             sprite.image = state.selected.handle.clone();
-            println!("Selected");
         } else if mouse_button_input.just_pressed(MouseButton::Left) && !is_hovered {
             state.is_selected = false;
             sprite.image = state.normal.handle.clone();
-            println!("Unselected")
         }
         // dragging
         if mouse_button_input.pressed(MouseButton::Left) && !state.is_dragging && is_hovered {
             state.is_dragging = true;
-            println!("Dragging");
         } else if mouse_button_input.just_released(MouseButton::Left) {
             state.is_dragging = false;
-            println!("Not dragging");
         }
         // hover glow
         if !state.is_glowing && is_hovered {
             sprite.image = state.glow.handle.clone();
             state.is_glowing = true;
-            println!("Glowing");
         } else if state.is_glowing && !state.is_selected && !is_hovered {
             sprite.image = state.normal.handle.clone();
             state.is_glowing = false;
-            println!("Not glowing");
         }
     }
 }
@@ -139,7 +132,7 @@ pub fn setup_clothes(
                 ..Default::default()
             },
             Transform {
-                translation: Vec3::new(0.0, 0.0, 1.0),
+                translation: Vec3::new(0.0, 0.0, 10.0),
                 ..Default::default()
             },
             hoodie_state.clone(),
@@ -154,6 +147,7 @@ pub fn setup_clothes(
     // Create multiple ropes across the screen
     let start_x = -(window_width as f32 / 2.0) * ROPE_SPACING;
 
+    // Spawn ropes
     commands
         .spawn((
             Transform {
@@ -163,19 +157,6 @@ pub fn setup_clothes(
             Visibility::default(),
         ))
         .with_children(|parent| {
-            parent.spawn((
-                Sprite {
-                    image: rope.handle.clone(),
-                    ..Default::default()
-                },
-                Transform {
-                    translation: Vec3::new(0.0, 0.0, 5.0),
-                    ..Default::default()
-                },
-                hoodie_state,
-                interactable,
-                draggable,
-            ));
             for i in 0..NUM_ROPES {
                 let x_pos = start_x + (i as f32 * ROPE_SPACING);
                 let rope_sprite = Sprite {
